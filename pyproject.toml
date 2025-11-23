@@ -11,7 +11,7 @@ authors = [
 description = "Host an API to convert websites to markdown with optional features"
 readme = "README.md"
 license = { file = "LICENSE" }
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
@@ -22,22 +22,21 @@ classifiers = [
 ]
 
 dependencies = [
-    "aiofiles>=24.1",
-    "fastapi>=0.115",
-    "pydantic>=2.10",
-    "python-multipart>=0.0.20",
-    "redis>=5.2",
-    "requests>=2.32",
-    "trafilatura>=2.0",
-    "uvicorn>=0.34"
+    "aiofiles==25.1.0",
+    "fastapi==0.121.3",
+    "pydantic==2.12.4",
+    "python-multipart==0.0.20",
+    "redis==7.1.0",
+    "trafilatura==2.0.0",
+    "uvicorn==0.38.0"
 ]
 
 [project.optional-dependencies]
 dev = [
     "httpx>=0.28.0",
-    "pytest>=8.3.0",
-    "pytest-asyncio>=0.25.0",
-    "pytest-cov>=6.0.0"
+    "pytest==9.0.1",
+    "pytest-asyncio==1.3.0",
+    "pytest-cov==7.0.0"
 ]
 
 [project.urls]
