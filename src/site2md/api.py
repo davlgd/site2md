@@ -208,6 +208,8 @@ def create_app(settings: Settings) -> FastAPI:
             raise HTTPException(status_code=502, detail=str(e))
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
+        except HTTPException:
+            raise
         except Exception:
             logger.exception("Unexpected error during conversion")
             raise HTTPException(status_code=500, detail="Internal server error")
