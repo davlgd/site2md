@@ -1,15 +1,22 @@
 # site2md
 
-Convert any website to Markdown or structured JSON. An ideal solution to provide content to LLMs(.txt). This project uses FastAPI and Trafilatura. It serves a simple API with optional KV (Materia, Redis, Valkey) caching and rate limiting.
+Convert websites to Markdown or JSON. Built with FastAPI, Trafilatura, httpx. Optional Redis caching and rate limiting.
 
-## Usage
+## Quick start
 
-See the [example](https://github.com/davlgd/site2md/tree/main/example) directory to get started.
+```bash
+pip install site2md  # or: uv add site2md
+```
 
-## Development & Tests
+See [`examples/`](examples/) for usage patterns.
 
-Install optional dependencies and run `pytest` to run the tests. If a KV local server is not running, corresponding tests will be skipped.
+## Dev
+
+```bash
+uv sync --extra dev
+uv run pytest
+```
 
 ## License
 
-This project is licensed under the terms of the MIT license. See the [LICENSE](https://github.com/davlgd/site2md/tree/main/LICENSE) file.
+MIT
