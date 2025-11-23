@@ -13,6 +13,12 @@ from site2md.converter import extract_content
 from site2md.logging import logger
 from urllib.parse import urlparse, unquote
 
+
+class OutputFormat(str, Enum):
+    """Supported output formats"""
+    MARKDOWN = "markdown"
+    JSON = "json"
+
 def clean_url(url: str) -> str:
     """Clean and validate URL
 
@@ -76,7 +82,7 @@ def create_app(settings: Settings) -> FastAPI:
         return {"status": "ok"}
 
     @app.get("/{url:path}")
-    async def convert(url: str, request: Request, format: str = "markdown") -> Response:
+    async def convert(url: str, request: Request, format: OutputFormat = OutputFormat.MARKDOWN) -> Response:
         """Convert webpage to markdown or JSON
 
         Fetches a webpage and converts it to markdown or JSON format,
@@ -85,7 +91,7 @@ def create_app(settings: Settings) -> FastAPI:
         Args:
             url: URL to convert
             request: FastAPI request object
-            format: Output format ("markdown" or "json")
+            format: Output format (markdown or json)
 
         Returns:
             Response: Converted content
@@ -104,10 +110,10 @@ def create_app(settings: Settings) -> FastAPI:
         if settings.rate_limiter:
             settings.rate_limiter.check_limits(request.client.host)
 
-        wants_json = format.lower() == "json"
+        wants_json = format == OutputFormat.JSON
         try:
             url = clean_url(url)
-            cache_key = f"{hashlib.md5(url.encode()).hexdigest()}:{format}"
+            cache_key = f"{hashlib.md5(url.encode()).hexdigest()}:{format.value}"
 
             if settings.cache_backend and (cached := settings.cache_backend.get(cache_key)):
                 return JSONResponse(json.loads(cached)) if wants_json else Response(cached, media_type="text/plain")
