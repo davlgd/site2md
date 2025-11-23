@@ -20,6 +20,62 @@ class OutputFormat(str, Enum):
     MARKDOWN = "markdown"
     JSON = "json"
 
+
+def parse_forwarded_header(header: str) -> list[dict[str, str]]:
+    """Parse RFC 7239 Forwarded header into list of directive dicts
+
+    Example: "proto=https;for=1.2.3.4:1234;by=5.6.7.8"
+    Returns: [{"proto": "https", "for": "1.2.3.4", "by": "5.6.7.8"}]
+    """
+    entries = []
+    for entry in header.split(","):
+        directives = {}
+        for part in entry.strip().split(";"):
+            if "=" in part:
+                key, value = part.split("=", 1)
+                # Extract IP without port (for=1.2.3.4:1234 -> 1.2.3.4)
+                if ":" in value and key.strip().lower() in ("for", "by"):
+                    value = value.rsplit(":", 1)[0]
+                directives[key.strip().lower()] = value.strip()
+        if directives:
+            entries.append(directives)
+    return entries
+
+
+def get_client_ip(request: Request, trusted_proxies: list[str]) -> str:
+    """Extract real client IP from request, handling reverse proxies
+
+    Uses the RFC 7239 Forwarded header for security. Only trusts the client IP
+    if the 'by' directive matches a trusted proxy IP.
+
+    Args:
+        request: FastAPI request object
+        trusted_proxies: List of trusted proxy IP addresses
+
+    Returns:
+        str: The real client IP address
+    """
+    client_ip = request.client.host if request.client else "unknown"
+
+    # If no trusted proxies configured, return direct IP
+    if not trusted_proxies:
+        return client_ip
+
+    # Parse Forwarded header (RFC 7239)
+    forwarded = request.headers.get("forwarded", "")
+    if forwarded:
+        entries = parse_forwarded_header(forwarded)
+        # Check last entry (closest proxy to our app)
+        if entries:
+            last_entry = entries[-1]
+            proxy_ip = last_entry.get("by", "")
+            if proxy_ip in trusted_proxies:
+                # Trusted proxy, use the 'for' IP
+                return last_entry.get("for", client_ip)
+
+    return client_ip
+
+
 def clean_url(url: str) -> str:
     """Clean and validate URL
 
@@ -109,7 +165,8 @@ def create_app(settings: Settings) -> FastAPI:
                     raise HTTPException(status_code=404, detail="Favicon not found")
 
         if settings.rate_limiter:
-            settings.rate_limiter.check_limits(request.client.host)
+            client_ip = get_client_ip(request, settings.trusted_proxies)
+            settings.rate_limiter.check_limits(client_ip)
 
         wants_json = format == OutputFormat.JSON
         try:

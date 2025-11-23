@@ -51,6 +51,12 @@ class Settings(BaseModel):
     allowed_ips: List[str] = Field(
         default_factory=lambda: os.getenv("ALLOWED_IPS", "*").split(",")
     )
+    trusted_proxies: List[str] = Field(
+        default_factory=lambda: [
+            ip.strip() for ip in os.getenv("CC_REVERSE_PROXY_IPS", "").split(",") if ip.strip()
+        ],
+        description="List of trusted reverse proxy IPs (validated via RFC 7239 Forwarded header)"
+    )
 
     static_dir: Optional[str] = Field(
         default="static",
