@@ -1,7 +1,8 @@
 import os
 import json
 import hashlib
-import requests
+import httpx
+from enum import Enum
 
 from fastapi import FastAPI, HTTPException, Response, Request
 from fastapi.responses import JSONResponse, FileResponse
@@ -118,8 +119,9 @@ def create_app(settings: Settings) -> FastAPI:
             if settings.cache_backend and (cached := settings.cache_backend.get(cache_key)):
                 return JSONResponse(json.loads(cached)) if wants_json else Response(cached, media_type="text/plain")
 
-            response = requests.get(url, timeout=settings.request_timeout)
-            response.raise_for_status()
+            async with httpx.AsyncClient(timeout=settings.request_timeout) as client:
+                response = await client.get(url)
+                response.raise_for_status()
 
             if len(response.content) > settings.max_content_size:
                 raise HTTPException(status_code=413, detail="Content too large")
@@ -133,9 +135,11 @@ def create_app(settings: Settings) -> FastAPI:
 
             return JSONResponse(result) if wants_json else Response(result, media_type="text/plain")
 
-        except requests.Timeout:
+        except httpx.TimeoutException:
             raise HTTPException(status_code=504, detail="Request timeout")
-        except requests.RequestException as e:
+        except httpx.HTTPStatusError as e:
+            raise HTTPException(status_code=502, detail=f"Upstream error: {e.response.status_code}")
+        except httpx.RequestError as e:
             raise HTTPException(status_code=502, detail=str(e))
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))

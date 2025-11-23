@@ -24,6 +24,7 @@ classifiers = [
 dependencies = [
     "aiofiles==25.1.0",
     "fastapi==0.121.3",
+    "httpx==0.28.1",
     "pydantic==2.12.4",
     "python-multipart==0.0.20",
     "redis==7.1.0",
@@ -33,7 +34,6 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "httpx>=0.28.0",
     "pytest==9.0.1",
     "pytest-asyncio==1.3.0",
     "pytest-cov==7.0.0"

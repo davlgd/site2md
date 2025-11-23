@@ -1,6 +1,6 @@
 import pytest
-import requests
-from unittest.mock import patch
+import httpx
+from unittest.mock import patch, AsyncMock, MagicMock
 from fastapi.testclient import TestClient
 from site2md import create_app, Settings
 from site2md.limiting import MemoryRateLimiter
@@ -48,21 +48,39 @@ def test_health_check(client):
 ])
 def test_url_validation(client, url, expected_status):
     """Test URL validation and error handling"""
-    with patch('requests.get') as mock_get:
-        if expected_status == 200:
-            mock_get.return_value.status_code = 200
-            mock_get.return_value.text = "<html><body>Test</body></html>"
-        else:
-            mock_get.side_effect = requests.RequestException()
+    with patch('httpx.AsyncClient') as mock_client:
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = "<html><body>Test</body></html>"
+        mock_response.content = b"<html><body>Test</body></html>"
+        mock_response.raise_for_status = MagicMock()
+
+        mock_instance = AsyncMock()
+        mock_instance.get = AsyncMock(return_value=mock_response)
+        mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
+        mock_instance.__aexit__ = AsyncMock(return_value=None)
+        mock_client.return_value = mock_instance
+
+        if expected_status == 502:
+            mock_instance.get = AsyncMock(side_effect=httpx.RequestError("Connection failed"))
 
         response = client.get(f"/{url}")
         assert response.status_code == expected_status
 
 def test_rate_limiting(rate_limited_client):
     """Test rate limiting functionality"""
-    with patch('requests.get') as mock_get:
-        mock_get.return_value.status_code = 200
-        mock_get.return_value.text = "<html><body>Test</body></html>"
+    with patch('httpx.AsyncClient') as mock_client:
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = "<html><body>Test</body></html>"
+        mock_response.content = b"<html><body>Test</body></html>"
+        mock_response.raise_for_status = MagicMock()
+
+        mock_instance = AsyncMock()
+        mock_instance.get = AsyncMock(return_value=mock_response)
+        mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
+        mock_instance.__aexit__ = AsyncMock(return_value=None)
+        mock_client.return_value = mock_instance
 
         # First request should succeed
         response = rate_limited_client.get("/https://example.com")
@@ -80,6 +98,19 @@ def test_rate_limiting(rate_limited_client):
 ])
 def test_content_types(client, format, content_type):
     """Test correct content type headers"""
-    response = client.get(f"/https://example.com?format={format}")
-    assert response.status_code == 200
-    assert response.headers["content-type"] == content_type
+    with patch('httpx.AsyncClient') as mock_client:
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = "<html><body>Test</body></html>"
+        mock_response.content = b"<html><body>Test</body></html>"
+        mock_response.raise_for_status = MagicMock()
+
+        mock_instance = AsyncMock()
+        mock_instance.get = AsyncMock(return_value=mock_response)
+        mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
+        mock_instance.__aexit__ = AsyncMock(return_value=None)
+        mock_client.return_value = mock_instance
+
+        response = client.get(f"/https://example.com?format={format}")
+        assert response.status_code == 200
+        assert response.headers["content-type"] == content_type
