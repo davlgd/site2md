@@ -1,7 +1,7 @@
 import logging
 from typing import Optional
 
-def setup_logger(name: str = "html2md", level: Optional[str] = None) -> logging.Logger:
+def setup_logger(name: str = "site2md", level: str = "INFO") -> logging.Logger:
     """Configure and return a logger
 
     Args:
@@ -21,8 +21,7 @@ def setup_logger(name: str = "html2md", level: Optional[str] = None) -> logging.
         handler.setFormatter(formatter)
         logger.addHandler(handler)
 
-    if level:
-        logger.setLevel(getattr(logging, level.upper()))
+    logger.setLevel(getattr(logging, level.upper()))
 
     return logger
 

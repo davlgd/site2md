@@ -25,4 +25,4 @@ if __name__ == "__main__":
         rate_limiter=None
     )
     app = create_app(settings)
-    uvicorn.run(app, host=settings.host, port=settings.port)
+    uvicorn.run(app, host=settings.host, port=settings.port, access_log=False)
