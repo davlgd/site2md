@@ -20,6 +20,18 @@ def client():
     return TestClient(app)
 
 @pytest.fixture
+def small_content_client():
+    """Create test client with small content size limit"""
+    settings = Settings(
+        static_dir=None,
+        max_content_size=100,  # Very small limit
+        cache_backend=None,
+        rate_limiter=None
+    )
+    app = create_app(settings)
+    return TestClient(app)
+
+@pytest.fixture
 def rate_limited_client():
     """Create test client with rate limiting"""
     limiter = MemoryRateLimiter(
@@ -33,6 +45,24 @@ def rate_limited_client():
     )
     app = create_app(settings)
     return TestClient(app)
+
+@pytest.fixture
+def mock_httpx_success():
+    """Mock httpx.AsyncClient with successful response"""
+    with patch('httpx.AsyncClient') as mock_client:
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = "<html><body>Test</body></html>"
+        mock_response.content = b"<html><body>Test</body></html>"
+        mock_response.raise_for_status = MagicMock()
+
+        mock_instance = AsyncMock()
+        mock_instance.get = AsyncMock(return_value=mock_response)
+        mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
+        mock_instance.__aexit__ = AsyncMock(return_value=None)
+        mock_client.return_value = mock_instance
+
+        yield mock_client, mock_instance, mock_response
 
 def test_health_check(client):
     """Test health check endpoint"""
@@ -204,3 +234,63 @@ class TestGetClientIP:
         request.headers = {}
         result = get_client_ip(request, [])
         assert result == "unknown"
+
+
+class TestErrorHandling:
+    """Test error handling for various failure scenarios"""
+
+    def test_timeout_returns_504(self, client):
+        """Test that timeout returns 504 Gateway Timeout"""
+        with patch('httpx.AsyncClient') as mock_client:
+            mock_instance = AsyncMock()
+            mock_instance.get = AsyncMock(side_effect=httpx.TimeoutException("Request timed out"))
+            mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
+            mock_instance.__aexit__ = AsyncMock(return_value=None)
+            mock_client.return_value = mock_instance
+
+            response = client.get("/https://example.com")
+            assert response.status_code == 504
+            assert "timeout" in response.json()["detail"].lower()
+
+    def test_upstream_error_returns_502(self, client):
+        """Test that upstream HTTP errors return 502 Bad Gateway"""
+        with patch('httpx.AsyncClient') as mock_client:
+            mock_response = MagicMock()
+            mock_response.status_code = 500
+            mock_response.raise_for_status = MagicMock(
+                side_effect=httpx.HTTPStatusError("Server Error", request=MagicMock(), response=mock_response)
+            )
+
+            mock_instance = AsyncMock()
+            mock_instance.get = AsyncMock(return_value=mock_response)
+            mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
+            mock_instance.__aexit__ = AsyncMock(return_value=None)
+            mock_client.return_value = mock_instance
+
+            response = client.get("/https://example.com")
+            assert response.status_code == 502
+
+    def test_content_too_large_returns_413(self, small_content_client):
+        """Test that content exceeding max_content_size returns 413"""
+        with patch('httpx.AsyncClient') as mock_client:
+            large_content = "<html><body>" + "x" * 200 + "</body></html>"
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_response.text = large_content
+            mock_response.content = large_content.encode()
+            mock_response.raise_for_status = MagicMock()
+
+            mock_instance = AsyncMock()
+            mock_instance.get = AsyncMock(return_value=mock_response)
+            mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
+            mock_instance.__aexit__ = AsyncMock(return_value=None)
+            mock_client.return_value = mock_instance
+
+            response = small_content_client.get("/https://example.com")
+            assert response.status_code == 413
+            assert "too large" in response.json()["detail"].lower()
+
+    def test_invalid_format_returns_400(self, client, mock_httpx_success):
+        """Test that invalid format parameter returns 400"""
+        response = client.get("/https://example.com?format=invalid")
+        assert response.status_code == 422  # FastAPI validation error
