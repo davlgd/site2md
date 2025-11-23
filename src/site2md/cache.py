@@ -50,8 +50,8 @@ class KVCache(CacheBackend):
             return None
 
     def set(self, key: str, value: str) -> None:
-        """Set value in cache with TTL"""
-        if not self.client or self.client.exists(key):
+        """Set value in cache with TTL (always updates)"""
+        if not self.client:
             return
         try:
             self.client.setex(key, self.config.ttl, value)
