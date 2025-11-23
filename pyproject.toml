@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "site2md"
-version = "0.2.0"
+version = "0.2.1"
 authors = [
     { name = "David Legrand", email = "1110600+davlgd@users.noreply.github.com" },
 ]
