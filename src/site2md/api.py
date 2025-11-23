@@ -128,6 +128,14 @@ def create_app(settings: Settings) -> FastAPI:
         allow_headers=["*"]
     )
 
+    @app.middleware("http")
+    async def log_requests(request: Request, call_next):
+        """Log requests with real client IP"""
+        response = await call_next(request)
+        client_ip = get_client_ip(request, settings.trusted_proxies)
+        logger.info(f"{client_ip} - {request.method} {request.url.path} {response.status_code}")
+        return response
+
     @app.get("/")
     async def root() -> FileResponse:
         if not settings.static_dir:
